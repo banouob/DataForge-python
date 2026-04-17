@@ -1,0 +1,55 @@
+name: 打包 Windows EXE
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build EXE
+        env:
+          DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
+        run: |
+          pyinstaller `
+            --onedir `
+            --windowed `
+            --collect-all aspose.words `
+            --add-data "config.properties;." `
+            --add-data "vehicle-types.properties;." `
+            --name DataForge `
+            main.py
+
+      - name: Zip output
+        run: Compress-Archive -Path dist\DataForge\* -DestinationPath DataForge-windows.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DataForge-windows
+          path: DataForge-windows.zip
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: DataForge-windows.zip
+          generate_release_notes: true
